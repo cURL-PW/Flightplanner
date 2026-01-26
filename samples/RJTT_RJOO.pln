@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SimBase.Document Type="AceXML" version="1,0">
+    <Descr>AceXML Document</Descr>
+    <FlightPlan.FlightPlan>
+        <Title>RJTT to RJOO</Title>
+        <FPType>IFR</FPType>
+        <RouteType>HighAlt</RouteType>
+        <CruisingAlt>39000</CruisingAlt>
+        <DepartureID>RJTT</DepartureID>
+        <DepartureLLA>N35° 33' 12.00",E139° 46' 48.00",+000035.00</DepartureLLA>
+        <DestinationID>RJOO</DestinationID>
+        <DestinationLLA>N34° 47' 2.00",E135° 26' 21.00",+000039.00</DestinationLLA>
+        <Descr>RJTT to RJOO</Descr>
+        <DepartureName>Tokyo Haneda Intl</DepartureName>
+        <DestinationName>Osaka Itami</DestinationName>
+        <AppVersion>
+            <AppVersionMajor>11</AppVersionMajor>
+            <AppVersionBuild>282174</AppVersionBuild>
+        </AppVersion>
+        <ATCWaypoint id="RJTT">
+            <ATCWaypointType>Airport</ATCWaypointType>
+            <WorldPosition>N35° 33' 12.00",E139° 46' 48.00",+000035.00</WorldPosition>
+            <ICAOIdent>RJTT</ICAOIdent>
+            <ICAORegion>RJ</ICAORegion>
+        </ATCWaypoint>
+        <ATCWaypoint id="CLARK">
+            <ATCWaypointType>Intersection</ATCWaypointType>
+            <WorldPosition>N35° 28' 0.00",E139° 37' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>CLARK</ICAOIdent>
+            <ICAORegion>RJ</ICAORegion>
+            <ATCAirway>Y28</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="SPENS">
+            <ATCWaypointType>Intersection</ATCWaypointType>
+            <WorldPosition>N35° 15' 0.00",E139° 5' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>SPENS</ICAOIdent>
+            <ICAORegion>RJ</ICAORegion>
+            <ATCAirway>Y28</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="OTONE">
+            <ATCWaypointType>Intersection</ATCWaypointType>
+            <WorldPosition>N35° 0' 0.00",E138° 25' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>OTONE</ICAOIdent>
+            <ICAORegion>RJ</ICAORegion>
+            <ATCAirway>Y28</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="SUZKA">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N34° 53' 0.00",E136° 35' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>SUZKA</ICAOIdent>
+            <ICAORegion>RJ</ICAORegion>
+            <ATCAirway>Y28</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="KODAI">
+            <ATCWaypointType>Intersection</ATCWaypointType>
+            <WorldPosition>N34° 52' 0.00",E135° 58' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>KODAI</ICAOIdent>
+            <ICAORegion>RJ</ICAORegion>
+            <ATCAirway>Y28</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="RJOO">
+            <ATCWaypointType>Airport</ATCWaypointType>
+            <WorldPosition>N34° 47' 2.00",E135° 26' 21.00",+000039.00</WorldPosition>
+            <ICAOIdent>RJOO</ICAOIdent>
+            <ICAORegion>RJ</ICAORegion>
+        </ATCWaypoint>
+    </FlightPlan.FlightPlan>
+</SimBase.Document>
