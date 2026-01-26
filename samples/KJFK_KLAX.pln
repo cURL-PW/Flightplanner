@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SimBase.Document Type="AceXML" version="1,0">
+    <Descr>AceXML Document</Descr>
+    <FlightPlan.FlightPlan>
+        <Title>KJFK to KLAX</Title>
+        <FPType>IFR</FPType>
+        <RouteType>HighAlt</RouteType>
+        <CruisingAlt>41000</CruisingAlt>
+        <DepartureID>KJFK</DepartureID>
+        <DepartureLLA>N40° 38' 23.00",W73° 46' 44.00",+000012.00</DepartureLLA>
+        <DestinationID>KLAX</DestinationID>
+        <DestinationLLA>N33° 56' 33.00",W118° 24' 29.00",+000126.00</DestinationLLA>
+        <Descr>New York JFK to Los Angeles</Descr>
+        <DepartureName>John F Kennedy Intl</DepartureName>
+        <DestinationName>Los Angeles Intl</DestinationName>
+        <ATCWaypoint id="KJFK">
+            <ATCWaypointType>Airport</ATCWaypointType>
+            <WorldPosition>N40° 38' 23.00",W73° 46' 44.00",+000012.00</WorldPosition>
+            <ICAOIdent>KJFK</ICAOIdent>
+            <ICAORegion>K6</ICAORegion>
+        </ATCWaypoint>
+        <ATCWaypoint id="MERIT">
+            <ATCWaypointType>Intersection</ATCWaypointType>
+            <WorldPosition>N40° 30' 0.00",W74° 20' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>MERIT</ICAOIdent>
+            <ICAORegion>K6</ICAORegion>
+        </ATCWaypoint>
+        <ATCWaypoint id="SBJ">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N40° 32' 0.00",W74° 47' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>SBJ</ICAOIdent>
+            <ICAORegion>K6</ICAORegion>
+            <ATCAirway>J6</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="PSB">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N40° 55' 0.00",W77° 50' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>PSB</ICAOIdent>
+            <ICAORegion>K6</ICAORegion>
+            <ATCAirway>J6</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="AIR">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N40° 27' 0.00",W80° 45' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>AIR</ICAOIdent>
+            <ICAORegion>K6</ICAORegion>
+            <ATCAirway>J6</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="FWA">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N40° 59' 0.00",W85° 11' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>FWA</ICAOIdent>
+            <ICAORegion>K6</ICAORegion>
+            <ATCAirway>J64</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="JOT">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N41° 30' 0.00",W88° 19' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>JOT</ICAOIdent>
+            <ICAORegion>K6</ICAORegion>
+            <ATCAirway>J64</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="DBQ">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N42° 24' 0.00",W90° 42' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>DBQ</ICAOIdent>
+            <ICAORegion>K6</ICAORegion>
+            <ATCAirway>J64</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="OVR">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N41° 22' 0.00",W95° 56' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>OVR</ICAOIdent>
+            <ICAORegion>K5</ICAORegion>
+            <ATCAirway>J80</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="DEN">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N39° 47' 0.00",W104° 53' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>DEN</ICAOIdent>
+            <ICAORegion>K2</ICAORegion>
+            <ATCAirway>J80</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="DRK">
+            <ATCWaypointType>VOR</ATCWaypointType>
+            <WorldPosition>N34° 42' 0.00",W112° 29' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>DRK</ICAOIdent>
+            <ICAORegion>K2</ICAORegion>
+            <ATCAirway>J80</ATCAirway>
+        </ATCWaypoint>
+        <ATCWaypoint id="HLYWD">
+            <ATCWaypointType>Intersection</ATCWaypointType>
+            <WorldPosition>N34° 5' 0.00",W118° 20' 0.00",+000000.00</WorldPosition>
+            <ICAOIdent>HLYWD</ICAOIdent>
+            <ICAORegion>K2</ICAORegion>
+        </ATCWaypoint>
+        <ATCWaypoint id="KLAX">
+            <ATCWaypointType>Airport</ATCWaypointType>
+            <WorldPosition>N33° 56' 33.00",W118° 24' 29.00",+000126.00</WorldPosition>
+            <ICAOIdent>KLAX</ICAOIdent>
+            <ICAORegion>K2</ICAORegion>
+        </ATCWaypoint>
+    </FlightPlan.FlightPlan>
+</SimBase.Document>
