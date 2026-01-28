@@ -20,6 +20,9 @@ from .parsers import PlnParser, FlpParser, RteParser
 from .flight_calculator import calculate_route_statistics, RouteStatistics
 from .history_manager import HistoryManager, FlightplanEntry
 from .altitude_profile_widget import AltitudeProfileWidget
+from .navdata import get_navdata, NavigationDatabase
+from .simbrief import SimBriefClient, SimBriefOFP
+from .settings_dialog import SettingsDialog
 
 
 class WaypointTableWidget(QTableWidget):
@@ -357,6 +360,139 @@ class HistoryWidget(QWidget):
             self.refresh()
 
 
+class SimBriefWidget(QWidget):
+    """Widget for SimBrief integration."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.simbrief_client: Optional[SimBriefClient] = None
+        self.current_ofp: Optional[SimBriefOFP] = None
+        self.on_flightplan_loaded = None  # Callback
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Set up the widget UI."""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+
+        # Status
+        self.status_label = QLabel("SimBriefに接続していません")
+        self.status_label.setStyleSheet("color: #888;")
+        layout.addWidget(self.status_label)
+
+        # Fetch button
+        self.fetch_btn = QPushButton("最新OFPを取得")
+        self.fetch_btn.clicked.connect(self._fetch_ofp)
+        layout.addWidget(self.fetch_btn)
+
+        # OFP info
+        self.info_group = QGroupBox("フライトプラン")
+        info_layout = QVBoxLayout(self.info_group)
+
+        self.flight_label = QLabel("便名: ---")
+        self.flight_label.setFont(QFont("Consolas", 11, QFont.Weight.Bold))
+        info_layout.addWidget(self.flight_label)
+
+        self.route_label = QLabel("ルート: ---- → ----")
+        info_layout.addWidget(self.route_label)
+
+        self.aircraft_label = QLabel("機材: ---")
+        info_layout.addWidget(self.aircraft_label)
+
+        self.distance_label = QLabel("距離: --- NM")
+        info_layout.addWidget(self.distance_label)
+
+        self.fuel_label = QLabel("燃料: --- lbs")
+        info_layout.addWidget(self.fuel_label)
+
+        self.info_group.setVisible(False)
+        layout.addWidget(self.info_group)
+
+        # Load button
+        self.load_btn = QPushButton("このプランを読み込む")
+        self.load_btn.clicked.connect(self._load_flightplan)
+        self.load_btn.setVisible(False)
+        self.load_btn.setStyleSheet("background-color: #2a82da;")
+        layout.addWidget(self.load_btn)
+
+        layout.addStretch()
+
+        # Configure hint
+        hint_label = QLabel(
+            "SimBrief Pilot IDは\n"
+            "ツール → 設定 で設定できます"
+        )
+        hint_label.setStyleSheet("color: #666; font-size: 10px;")
+        hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(hint_label)
+
+    def set_client(self, client: SimBriefClient):
+        """Set the SimBrief client."""
+        self.simbrief_client = client
+        if client and client.pilot_id:
+            self.status_label.setText(f"Pilot ID: {client.pilot_id}")
+            self.status_label.setStyleSheet("color: #0a0;")
+        else:
+            self.status_label.setText("SimBriefに接続していません")
+            self.status_label.setStyleSheet("color: #888;")
+
+    def _fetch_ofp(self):
+        """Fetch the latest OFP from SimBrief."""
+        if not self.simbrief_client or not self.simbrief_client.pilot_id:
+            QMessageBox.warning(
+                self,
+                "エラー",
+                "SimBrief Pilot IDが設定されていません。\n"
+                "ツール → 設定 で設定してください。"
+            )
+            return
+
+        self.fetch_btn.setEnabled(False)
+        self.fetch_btn.setText("取得中...")
+        self.status_label.setText("OFPを取得中...")
+
+        try:
+            ofp = self.simbrief_client.fetch_latest_ofp()
+
+            if ofp:
+                self.current_ofp = ofp
+                self._display_ofp(ofp)
+                self.status_label.setText("OFPを取得しました")
+                self.status_label.setStyleSheet("color: #0a0;")
+            else:
+                self.status_label.setText("OFPの取得に失敗しました")
+                self.status_label.setStyleSheet("color: #f00;")
+                QMessageBox.warning(
+                    self,
+                    "エラー",
+                    "SimBriefからOFPを取得できませんでした。\n"
+                    "Pilot IDを確認してください。"
+                )
+        except Exception as e:
+            self.status_label.setText(f"エラー: {str(e)[:30]}")
+            self.status_label.setStyleSheet("color: #f00;")
+        finally:
+            self.fetch_btn.setEnabled(True)
+            self.fetch_btn.setText("最新OFPを取得")
+
+    def _display_ofp(self, ofp: SimBriefOFP):
+        """Display OFP information."""
+        self.flight_label.setText(f"便名: {ofp.flight_number}")
+        self.route_label.setText(f"ルート: {ofp.departure_icao} → {ofp.arrival_icao}")
+        self.aircraft_label.setText(f"機材: {ofp.aircraft_name} ({ofp.aircraft_reg})")
+        self.distance_label.setText(f"距離: {ofp.distance_nm:.0f} NM")
+        self.fuel_label.setText(f"燃料: {ofp.fuel_plan_ramp:.0f} {ofp.fuel_unit}")
+
+        self.info_group.setVisible(True)
+        self.load_btn.setVisible(True)
+
+    def _load_flightplan(self):
+        """Load the current OFP as a flightplan."""
+        if self.current_ofp and self.simbrief_client and self.on_flightplan_loaded:
+            flightplan = self.simbrief_client.ofp_to_flightplan(self.current_ofp)
+            self.on_flightplan_loaded(flightplan)
+
+
 class MainWindow(QMainWindow):
     """Main application window."""
 
@@ -371,11 +507,19 @@ class MainWindow(QMainWindow):
         self.history_manager = HistoryManager(self.settings)
         self.cruise_speed = 450  # Default cruise speed in knots
 
+        # Phase 2: NavData and SimBrief
+        self.navdata = get_navdata()
+        self.simbrief_client = SimBriefClient()
+
         self._setup_ui()
         self._setup_menus()
         self._setup_toolbar()
         self._load_settings()
         self._scan_flightplans()
+
+        # Auto-fetch SimBrief if configured
+        if self.settings.value("simbrief/auto_fetch", False, type=bool):
+            self._auto_fetch_simbrief()
 
     def _setup_ui(self):
         """Set up the main window UI."""
@@ -455,6 +599,11 @@ class MainWindow(QMainWindow):
         self.history_widget.on_item_selected = lambda path: self._load_flightplan(Path(path))
         self.left_tabs.addTab(self.history_widget, "履歴")
 
+        # SimBrief tab
+        self.simbrief_widget = SimBriefWidget()
+        self.simbrief_widget.on_flightplan_loaded = self._on_simbrief_flightplan_loaded
+        self.left_tabs.addTab(self.simbrief_widget, "SimBrief")
+
         left_layout.addWidget(self.left_tabs)
         splitter.addWidget(left_panel)
 
@@ -526,6 +675,14 @@ class MainWindow(QMainWindow):
         self.alt_btn.clicked.connect(lambda: self.tab_widget.setCurrentIndex(2))
         toolbar.addWidget(self.alt_btn)
 
+        toolbar.addSeparator()
+
+        # SimBrief button
+        self.simbrief_btn = QPushButton("SimBrief")
+        self.simbrief_btn.setToolTip("SimBriefから最新のOFPを取得")
+        self.simbrief_btn.clicked.connect(self._on_fetch_simbrief)
+        toolbar.addWidget(self.simbrief_btn)
+
     def _setup_menus(self):
         """Set up the menu bar."""
         menubar = self.menuBar()
@@ -590,6 +747,27 @@ class MainWindow(QMainWindow):
         history_action.triggered.connect(lambda: self.left_tabs.setCurrentIndex(1))
         view_menu.addAction(history_action)
 
+        # Tools menu
+        tools_menu = menubar.addMenu("&Tools")
+
+        simbrief_action = QAction("Fetch from &SimBrief", self)
+        simbrief_action.setShortcut("Ctrl+B")
+        simbrief_action.triggered.connect(self._on_fetch_simbrief)
+        tools_menu.addAction(simbrief_action)
+
+        tools_menu.addSeparator()
+
+        navdata_info_action = QAction("&NavData Info", self)
+        navdata_info_action.triggered.connect(self._show_navdata_info)
+        tools_menu.addAction(navdata_info_action)
+
+        tools_menu.addSeparator()
+
+        settings_action = QAction("&Settings...", self)
+        settings_action.setShortcut("Ctrl+,")
+        settings_action.triggered.connect(self._show_settings)
+        tools_menu.addAction(settings_action)
+
         # Help menu
         help_menu = menubar.addMenu("&Help")
 
@@ -613,6 +791,19 @@ class MainWindow(QMainWindow):
         speed = self.settings.value("cruise_speed", 450, type=int)
         self.cruise_speed = speed
         self.speed_spinbox.setValue(speed)
+
+        # Load SimBrief settings
+        pilot_id = self.settings.value("simbrief/pilot_id", "")
+        if pilot_id:
+            self.simbrief_client.set_pilot_id(pilot_id)
+            self.simbrief_widget.set_client(self.simbrief_client)
+
+        # Load NavData if configured
+        navdata_path = self.settings.value("navdata/path", "")
+        if navdata_path and Path(navdata_path).exists():
+            count = self.navdata.load_xplane_earthnav(Path(navdata_path))
+            if count > 0:
+                self.status_bar.showMessage(f"Loaded {count} navaids from external file")
 
     def _save_settings(self):
         """Save application settings."""
@@ -830,13 +1021,138 @@ class MainWindow(QMainWindow):
             f"({flightplan.total_waypoints} waypoints){stats_msg}"
         )
 
+    def _on_fetch_simbrief(self):
+        """Fetch OFP from SimBrief."""
+        if not self.simbrief_client.pilot_id:
+            QMessageBox.warning(
+                self,
+                "SimBrief",
+                "SimBrief Pilot IDが設定されていません。\n"
+                "ツール → 設定 で設定してください。"
+            )
+            self._show_settings()
+            return
+
+        self.left_tabs.setCurrentIndex(2)  # Switch to SimBrief tab
+        self.simbrief_widget._fetch_ofp()
+
+    def _on_simbrief_flightplan_loaded(self, flightplan: Flightplan):
+        """Handle flightplan loaded from SimBrief."""
+        self._display_flightplan(flightplan)
+
+    def _display_flightplan(self, flightplan: Flightplan):
+        """Display a flightplan (from any source)."""
+        self.current_flightplan = flightplan
+
+        # Enhance waypoints with NavData coordinates
+        self._enhance_waypoints_with_navdata(flightplan)
+
+        # Calculate route statistics
+        self.current_route_stats = calculate_route_statistics(
+            flightplan,
+            self.cruise_speed
+        )
+
+        # Update displays
+        self.info_widget.display_flightplan(flightplan, self.current_route_stats, False)
+        self.map_widget.display_flightplan(flightplan)
+        self.waypoint_table.display_flightplan(flightplan, self.current_route_stats)
+        self.altitude_widget.set_flightplan(flightplan, self.cruise_speed)
+
+        # Enable favorite action
+        self.fav_action.setEnabled(bool(flightplan.source_file))
+
+        # Status message
+        stats_msg = ""
+        if self.current_route_stats:
+            stats_msg = f" | {self.current_route_stats.total_distance_nm:.0f} NM"
+            if self.current_route_stats.estimated_flight_time_minutes:
+                stats_msg += f" | {self.current_route_stats.formatted_time}"
+
+        self.status_bar.showMessage(
+            f"Loaded: {flightplan.departure_icao} → {flightplan.destination_icao} "
+            f"({flightplan.total_waypoints} waypoints){stats_msg}"
+        )
+
+    def _enhance_waypoints_with_navdata(self, flightplan: Flightplan):
+        """Enhance waypoints with coordinates from NavData."""
+        all_wpts = flightplan.all_waypoints()
+
+        for i, wpt in enumerate(all_wpts):
+            # Skip if already has valid coordinates
+            if wpt.latitude != 0 or wpt.longitude != 0:
+                continue
+
+            # Get nearby waypoint for reference
+            near_lat, near_lon = None, None
+            if i > 0 and all_wpts[i - 1].latitude != 0:
+                near_lat = all_wpts[i - 1].latitude
+                near_lon = all_wpts[i - 1].longitude
+
+            # Look up in NavData
+            coords = self.navdata.get_coordinates(
+                wpt.ident,
+                wpt.waypoint_type,
+                near_lat,
+                near_lon
+            )
+
+            if coords:
+                wpt.latitude = coords[0]
+                wpt.longitude = coords[1]
+
+    def _auto_fetch_simbrief(self):
+        """Auto-fetch SimBrief OFP on startup."""
+        if self.simbrief_client.pilot_id:
+            self.simbrief_widget.set_client(self.simbrief_client)
+            # Don't auto-fetch immediately, just set up the client
+
+    def _show_settings(self):
+        """Show the settings dialog."""
+        dialog = SettingsDialog(self.settings, self)
+        if dialog.exec():
+            # Reload settings
+            pilot_id = self.settings.value("simbrief/pilot_id", "")
+            if pilot_id:
+                self.simbrief_client.set_pilot_id(pilot_id)
+                self.simbrief_widget.set_client(self.simbrief_client)
+
+            # Reload custom paths
+            self.aircraft_manager.custom_paths.clear()
+            custom_paths = self.settings.value("custom_paths", []) or []
+            for path_str in custom_paths:
+                self.aircraft_manager.add_custom_path(Path(path_str))
+
+            # Reload cruise speed
+            speed = self.settings.value("cruise_speed", 450, type=int)
+            self.cruise_speed = speed
+            self.speed_spinbox.setValue(speed)
+
+            # Rescan flightplans
+            self._scan_flightplans()
+
+    def _show_navdata_info(self):
+        """Show NavData information."""
+        info = (
+            f"<h3>ナビゲーションデータベース</h3>"
+            f"<p><b>空港:</b> {self.navdata.airport_count}</p>"
+            f"<p><b>VOR:</b> {self.navdata.vor_count}</p>"
+            f"<p><b>NDB:</b> {self.navdata.ndb_count}</p>"
+            f"<p><b>FIX:</b> {self.navdata.fix_count}</p>"
+            f"<p><b>合計:</b> {self.navdata.total_count}</p>"
+            f"<hr>"
+            f"<p>ツール → 設定 から追加のナビデータ<br>"
+            f"(X-Plane earth_nav.dat) を読み込めます。</p>"
+        )
+        QMessageBox.information(self, "NavData Info", info)
+
     def _show_about(self):
         """Show about dialog."""
         QMessageBox.about(
             self,
             "About MSFS Flightplan Viewer",
             "<h2>MSFS Flightplan Viewer</h2>"
-            "<p>Version 1.1</p>"
+            "<p>Version 1.2</p>"
             "<p>A tool for viewing Microsoft Flight Simulator 2020 flightplans.</p>"
             "<h3>Features:</h3>"
             "<ul>"
@@ -844,6 +1160,8 @@ class MainWindow(QMainWindow):
             "<li>Distance and time calculation</li>"
             "<li>Altitude profile chart</li>"
             "<li>Favorites and history</li>"
+            "<li>SimBrief integration</li>"
+            "<li>NavData coordinate lookup</li>"
             "</ul>"
             "<h3>Supported Aircraft:</h3>"
             "<ul>"
