@@ -97,6 +97,63 @@ def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
     return (bearing + 360) % 360
 
 
+def great_circle_points(
+    lat1: float, lon1: float,
+    lat2: float, lon2: float,
+    num_points: int = 32
+) -> list[tuple[float, float]]:
+    """
+    Generate intermediate points along the great circle between two points.
+
+    Args:
+        lat1, lon1: Start coordinates in decimal degrees
+        lat2, lon2: End coordinates in decimal degrees
+        num_points: Number of segments to interpolate
+
+    Returns:
+        List of (lat, lon) tuples including both endpoints.
+        Longitudes are unwrapped (may exceed +/-180) so that
+        consecutive points never jump across the antimeridian.
+    """
+    phi1, lam1 = math.radians(lat1), math.radians(lon1)
+    phi2, lam2 = math.radians(lat2), math.radians(lon2)
+
+    # Angular distance between the points
+    d = 2 * math.asin(math.sqrt(
+        math.sin((phi2 - phi1) / 2) ** 2 +
+        math.cos(phi1) * math.cos(phi2) * math.sin((lam2 - lam1) / 2) ** 2
+    ))
+
+    if d < 1e-9:
+        return [(lat1, lon1), (lat2, lon2)]
+
+    points: list[tuple[float, float]] = []
+    for i in range(num_points + 1):
+        f = i / num_points
+        a = math.sin((1 - f) * d) / math.sin(d)
+        b = math.sin(f * d) / math.sin(d)
+
+        x = a * math.cos(phi1) * math.cos(lam1) + b * math.cos(phi2) * math.cos(lam2)
+        y = a * math.cos(phi1) * math.sin(lam1) + b * math.cos(phi2) * math.sin(lam2)
+        z = a * math.sin(phi1) + b * math.sin(phi2)
+
+        lat = math.degrees(math.atan2(z, math.sqrt(x * x + y * y)))
+        lon = math.degrees(math.atan2(y, x))
+        points.append((lat, lon))
+
+    # Unwrap longitudes for continuous polyline rendering
+    unwrapped = [points[0]]
+    for lat, lon in points[1:]:
+        prev_lon = unwrapped[-1][1]
+        while lon - prev_lon > 180:
+            lon -= 360
+        while lon - prev_lon < -180:
+            lon += 360
+        unwrapped.append((lat, lon))
+
+    return unwrapped
+
+
 def calculate_route_statistics(
     flightplan: Flightplan,
     cruise_speed_knots: Optional[float] = None

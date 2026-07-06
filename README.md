@@ -30,10 +30,28 @@ Microsoft Flight Simulator 2020のフライトプランを表示するPyQt6ア�
 ### 地図表示
 - **Leaflet.js**を使用したインタラクティブな地図
 - 3種類のマップスタイル（ダーク/ストリート/衛星）
-- 経路を青いラインで表示
+- 経路を**大圏コース**（実際の飛行経路）で描画
 - ウェイポイントを種類別に色分け表示
 - クリックでウェイポイント詳細をポップアップ表示
 - 自動ズーム・センタリング
+
+### MSFSリアルタイム連携 (SimConnect)
+- ツールバーの「✈ MSFS接続」でシミュレータに接続
+- 自機位置を地図上にリアルタイム表示（機首方位に連動して回転）
+- 実際に飛行した軌跡を赤いラインで記録・表示
+- ステータスバーに「次のFIXまでの距離 / 目的地までの残距離 / ETE」を表示
+- 「追従」ボタンで地図を自機に自動追従
+- 別途 `pip install SimConnect` が必要（Windows + MSFS環境のみ）
+
+### 気象情報 (METAR)
+- 出発地・目的地のMETARを自動取得（aviationweather.gov、APIキー不要）
+- フライトカテゴリ（VFR/MVFR/IFR/LIFR）を色付きバッジで表示
+- 風向風速・気温・視程・QNHをデコード表示
+
+### 形式間変換エクスポート
+- File → Export As から読み込んだプランを任意の形式で保存
+- MSFS PLN / Fenix・Aerosoft FLP / PMDG RTE の相互変換が可能
+- 例: SimBriefから取得したプランをPMDG用RTEとして書き出し
 
 ### ウェイポイント表示
 | 色 | 種類 | 説明 |
@@ -203,6 +221,12 @@ pyinstaller --onefile --windowed --name "MSFS Flightplan Viewer" main.py
 | `Ctrl+O` | ファイルを開く |
 | `Ctrl+M` | 地図タブを表示 |
 | `Ctrl+W` | ウェイポイントタブを表示 |
+| `Ctrl+A` | 高度プロファイルタブを表示 |
+| `Ctrl+E` | 気象タブを表示 |
+| `Ctrl+D` | お気に入りに追加/解除 |
+| `Ctrl+H` | 履歴を表示 |
+| `Ctrl+B` | SimBriefからOFPを取得 |
+| `Ctrl+,` | 設定を開く |
 | `F5` | フライトプランを再スキャン |
 | `Alt+F4` | アプリケーションを終了 |
 

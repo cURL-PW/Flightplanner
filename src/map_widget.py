@@ -10,6 +10,80 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
 from .models import Flightplan, Waypoint, WaypointType
+from .flight_calculator import great_circle_points, haversine_distance
+
+
+# JavaScript for real-time aircraft display (plain string - single braces OK)
+_AIRCRAFT_JS = '''
+    <script>
+        var aircraftMarker = null;
+        var trackLine = null;
+        var followAircraft = false;
+
+        var AIRCRAFT_SVG = '<svg viewBox="0 0 24 24" width="30" height="30" ' +
+            'fill="#ffcc00" stroke="#000" stroke-width="0.6">' +
+            '<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19' +
+            'l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>';
+
+        function updateAircraft(lat, lon, heading, altFt, gsKts) {
+            var inner = '<div class="aircraft-rotor" style="transform: rotate(' +
+                        heading + 'deg); width:30px; height:30px;">' +
+                        AIRCRAFT_SVG + '</div>';
+            if (!aircraftMarker) {
+                var icon = L.divIcon({
+                    className: 'aircraft-marker',
+                    html: inner,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                aircraftMarker = L.marker([lat, lon], {
+                    icon: icon,
+                    zIndexOffset: 1000,
+                    interactive: true
+                }).addTo(map);
+            } else {
+                aircraftMarker.setLatLng([lat, lon]);
+                var el = aircraftMarker.getElement();
+                if (el) {
+                    var rotor = el.querySelector('.aircraft-rotor');
+                    if (rotor) rotor.style.transform = 'rotate(' + heading + 'deg)';
+                }
+            }
+            aircraftMarker.bindTooltip(
+                'ALT ' + Math.round(altFt) + ' ft<br>GS ' + Math.round(gsKts) + ' kt',
+                { direction: 'top', offset: [0, -15] }
+            );
+            if (followAircraft) {
+                map.panTo([lat, lon], { animate: true, duration: 0.5 });
+            }
+        }
+
+        function updateTrack(coords) {
+            if (coords.length < 2) return;
+            if (!trackLine) {
+                trackLine = L.polyline(coords, {
+                    color: '#ff4444',
+                    weight: 2,
+                    opacity: 0.9
+                }).addTo(map);
+            } else {
+                trackLine.setLatLngs(coords);
+            }
+        }
+
+        function removeAircraft() {
+            if (aircraftMarker) { map.removeLayer(aircraftMarker); aircraftMarker = null; }
+            if (trackLine) { map.removeLayer(trackLine); trackLine = null; }
+        }
+
+        function setFollowAircraft(follow) {
+            followAircraft = follow;
+            if (follow && aircraftMarker) {
+                map.panTo(aircraftMarker.getLatLng());
+            }
+        }
+    </script>
+'''
 
 
 class MapWidget(QWidget):
@@ -21,6 +95,11 @@ class MapWidget(QWidget):
         super().__init__(parent)
         self.current_flightplan: Optional[Flightplan] = None
         self._temp_file: Optional[Path] = None
+
+        # Real-time aircraft display state (re-applied after page reloads)
+        self._last_aircraft_js: Optional[str] = None
+        self._track_points: list[tuple[float, float]] = []
+        self._follow_aircraft = False
 
         self._setup_ui()
 
@@ -34,6 +113,8 @@ class MapWidget(QWidget):
         self.web_view.settings().setAttribute(
             QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
         )
+        # Re-apply aircraft marker/track after the page is regenerated
+        self.web_view.loadFinished.connect(self._on_page_loaded)
         layout.addWidget(self.web_view)
 
         # Load initial empty map
@@ -123,9 +204,20 @@ class MapWidget(QWidget):
 
                 waypoints_js = json.dumps(waypoints_data)
 
-                # Route coordinates
-                route_coords = [[w.latitude, w.longitude] for w in all_wpts
-                               if w.latitude != 0 and w.longitude != 0]
+                # Route coordinates: densify each leg along the great circle
+                valid_wpts = [w for w in all_wpts
+                              if w.latitude != 0 and w.longitude != 0]
+                route_coords = []
+                for a, b in zip(valid_wpts, valid_wpts[1:]):
+                    # More interpolation points for longer legs
+                    dist = haversine_distance(a.latitude, a.longitude,
+                                              b.latitude, b.longitude)
+                    n = max(2, min(64, int(dist / 25)))
+                    seg = great_circle_points(a.latitude, a.longitude,
+                                              b.latitude, b.longitude, n)
+                    if route_coords:
+                        seg = seg[1:]  # avoid duplicating shared endpoint
+                    route_coords.extend([[lat, lon] for lat, lon in seg])
                 route_coords_js = json.dumps(route_coords)
 
         html = f'''<!DOCTYPE html>
@@ -390,10 +482,61 @@ class MapWidget(QWidget):
             legend.addTo(map);
         }}
     </script>
+{_AIRCRAFT_JS}
 </body>
 </html>'''
 
         return html
+
+    # ------------------------------------------------------------------
+    # Real-time aircraft display (SimConnect integration)
+    # ------------------------------------------------------------------
+
+    def _run_js(self, script: str):
+        """Run JavaScript in the map page."""
+        self.web_view.page().runJavaScript(script)
+
+    def _on_page_loaded(self, ok: bool):
+        """Re-apply aircraft state after the map page reloads."""
+        if not ok:
+            return
+        if self._follow_aircraft:
+            self._run_js("if (typeof setFollowAircraft === 'function') setFollowAircraft(true);")
+        if self._last_aircraft_js:
+            self._run_js(self._last_aircraft_js)
+        if len(self._track_points) >= 2:
+            coords = json.dumps([[lat, lon] for lat, lon in self._track_points])
+            self._run_js(f"if (typeof updateTrack === 'function') updateTrack({coords});")
+
+    def update_aircraft(self, lat: float, lon: float, heading: float,
+                        altitude_ft: float, ground_speed_kts: float):
+        """Update the aircraft marker position on the map."""
+        js = (
+            f"if (typeof updateAircraft === 'function') "
+            f"updateAircraft({lat:.6f}, {lon:.6f}, {heading:.1f}, "
+            f"{altitude_ft:.0f}, {ground_speed_kts:.0f});"
+        )
+        self._last_aircraft_js = js
+        self._run_js(js)
+
+    def update_flight_track(self, points: list[tuple[float, float]]):
+        """Update the recorded flight track polyline."""
+        self._track_points = list(points)
+        if len(points) >= 2:
+            coords = json.dumps([[lat, lon] for lat, lon in points])
+            self._run_js(f"if (typeof updateTrack === 'function') updateTrack({coords});")
+
+    def remove_aircraft(self):
+        """Remove the aircraft marker and flight track from the map."""
+        self._last_aircraft_js = None
+        self._track_points = []
+        self._run_js("if (typeof removeAircraft === 'function') removeAircraft();")
+
+    def set_follow_aircraft(self, follow: bool):
+        """Enable/disable auto-panning the map to follow the aircraft."""
+        self._follow_aircraft = follow
+        js_val = "true" if follow else "false"
+        self._run_js(f"if (typeof setFollowAircraft === 'function') setFollowAircraft({js_val});")
 
     def cleanup(self):
         """Clean up temporary files."""

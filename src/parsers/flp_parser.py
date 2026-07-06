@@ -247,15 +247,20 @@ class FlpParser(FlightplanParser):
         try:
             # Handle N/S/E/W prefix
             direction = 1
+            has_prefix = False
             if coord_str.startswith(('N', 'E')):
                 direction = 1
+                has_prefix = True
                 coord_str = coord_str[1:]
             elif coord_str.startswith(('S', 'W')):
                 direction = -1
+                has_prefix = True
                 coord_str = coord_str[1:]
 
-            # Handle DDMM.MM or DDDMM.MM format
-            if len(coord_str) >= 4 and '.' in coord_str:
+            # Handle DDMM.MM or DDDMM.MM format (degrees + decimal minutes).
+            # Only applies with a hemisphere prefix (e.g. N4736.2) -
+            # plain values like 139.6167 are decimal degrees.
+            if has_prefix and len(coord_str) >= 4 and '.' in coord_str:
                 dot_pos = coord_str.index('.')
                 if dot_pos >= 3:
                     # DDMM.MM or DDDMM.MM format

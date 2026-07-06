@@ -17,12 +17,17 @@ from .models import Flightplan, Waypoint, WaypointType, AircraftConfig
 from .map_widget import MapWidget
 from .aircraft_config import AircraftManager
 from .parsers import PlnParser, FlpParser, RteParser
-from .flight_calculator import calculate_route_statistics, RouteStatistics
+from .flight_calculator import (
+    calculate_route_statistics, RouteStatistics, haversine_distance
+)
+from .simconnect_client import SimConnectClient, AircraftState
 from .history_manager import HistoryManager, FlightplanEntry
 from .altitude_profile_widget import AltitudeProfileWidget
 from .navdata import get_navdata, NavigationDatabase
 from .simbrief import SimBriefClient, SimBriefOFP
 from .settings_dialog import SettingsDialog
+from .exporters import export_pln, export_flp, export_rte
+from .weather_widget import WeatherWidget
 
 
 class WaypointTableWidget(QTableWidget):
@@ -511,6 +516,11 @@ class MainWindow(QMainWindow):
         self.navdata = get_navdata()
         self.simbrief_client = SimBriefClient()
 
+        # Phase 3: SimConnect real-time tracking
+        self.simconnect_client = SimConnectClient(self)
+        self.simconnect_client.state_updated.connect(self._on_sim_state_updated)
+        self.simconnect_client.connection_changed.connect(self._on_sim_connection_changed)
+
         self._setup_ui()
         self._setup_menus()
         self._setup_toolbar()
@@ -632,6 +642,10 @@ class MainWindow(QMainWindow):
         self.altitude_widget = AltitudeProfileWidget()
         self.tab_widget.addTab(self.altitude_widget, "高度プロファイル")
 
+        # Weather tab
+        self.weather_widget = WeatherWidget()
+        self.tab_widget.addTab(self.weather_widget, "気象")
+
         right_layout.addWidget(self.tab_widget, 1)
 
         splitter.addWidget(right_panel)
@@ -643,6 +657,15 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready - Double-click a flightplan to load it")
+
+        # Permanent widgets: flight progress + SimConnect status
+        self.progress_label = QLabel("")
+        self.progress_label.setStyleSheet("color: #0fa; padding-right: 8px;")
+        self.status_bar.addPermanentWidget(self.progress_label)
+
+        self.sim_status_label = QLabel("MSFS: 未接続")
+        self.sim_status_label.setStyleSheet("color: #888; padding-right: 4px;")
+        self.status_bar.addPermanentWidget(self.sim_status_label)
 
     def _setup_toolbar(self):
         """Set up the toolbar."""
@@ -683,6 +706,30 @@ class MainWindow(QMainWindow):
         self.simbrief_btn.clicked.connect(self._on_fetch_simbrief)
         toolbar.addWidget(self.simbrief_btn)
 
+        toolbar.addSeparator()
+
+        # SimConnect buttons
+        self.sim_connect_btn = QPushButton("✈ MSFS接続")
+        self.sim_connect_btn.setCheckable(True)
+        self.sim_connect_btn.setToolTip("MSFSに接続して自機位置をリアルタイム表示")
+        self.sim_connect_btn.clicked.connect(self._on_toggle_simconnect)
+        toolbar.addWidget(self.sim_connect_btn)
+
+        self.follow_btn = QPushButton("追従")
+        self.follow_btn.setCheckable(True)
+        self.follow_btn.setEnabled(False)
+        self.follow_btn.setToolTip("地図を自機位置に追従させる")
+        self.follow_btn.toggled.connect(
+            lambda checked: self.map_widget.set_follow_aircraft(checked)
+        )
+        toolbar.addWidget(self.follow_btn)
+
+        self.clear_track_btn = QPushButton("軌跡クリア")
+        self.clear_track_btn.setEnabled(False)
+        self.clear_track_btn.setToolTip("記録した飛行軌跡を消去")
+        self.clear_track_btn.clicked.connect(self._on_clear_track)
+        toolbar.addWidget(self.clear_track_btn)
+
     def _setup_menus(self):
         """Set up the menu bar."""
         menubar = self.menuBar()
@@ -698,6 +745,25 @@ class MainWindow(QMainWindow):
         add_folder_action = QAction("Add &Folder...", self)
         add_folder_action.triggered.connect(self._on_add_folder)
         file_menu.addAction(add_folder_action)
+
+        file_menu.addSeparator()
+
+        # Export submenu (format conversion)
+        self.export_menu = file_menu.addMenu("&Export As")
+
+        export_pln_action = QAction("MSFS PLN形式 (.pln)...", self)
+        export_pln_action.triggered.connect(lambda: self._on_export('pln'))
+        self.export_menu.addAction(export_pln_action)
+
+        export_flp_action = QAction("Fenix/Aerosoft FLP形式 (.flp)...", self)
+        export_flp_action.triggered.connect(lambda: self._on_export('flp'))
+        self.export_menu.addAction(export_flp_action)
+
+        export_rte_action = QAction("PMDG RTE形式 (.rte)...", self)
+        export_rte_action.triggered.connect(lambda: self._on_export('rte'))
+        self.export_menu.addAction(export_rte_action)
+
+        self.export_menu.setEnabled(False)
 
         file_menu.addSeparator()
 
@@ -739,6 +805,11 @@ class MainWindow(QMainWindow):
         profile_action.setShortcut("Ctrl+A")
         profile_action.triggered.connect(lambda: self.tab_widget.setCurrentIndex(2))
         view_menu.addAction(profile_action)
+
+        weather_action = QAction("Show W&eather", self)
+        weather_action.setShortcut("Ctrl+E")
+        weather_action.triggered.connect(lambda: self.tab_widget.setCurrentIndex(3))
+        view_menu.addAction(weather_action)
 
         view_menu.addSeparator()
 
@@ -982,6 +1053,9 @@ class MainWindow(QMainWindow):
 
         self.current_flightplan = flightplan
 
+        # Enhance waypoints with NavData coordinates (e.g. FLP airports)
+        self._enhance_waypoints_with_navdata(flightplan)
+
         # Calculate route statistics
         self.current_route_stats = calculate_route_statistics(
             flightplan,
@@ -1005,9 +1079,13 @@ class MainWindow(QMainWindow):
         self.map_widget.display_flightplan(flightplan)
         self.waypoint_table.display_flightplan(flightplan, self.current_route_stats)
         self.altitude_widget.set_flightplan(flightplan, self.cruise_speed)
+        self.weather_widget.set_airports(
+            flightplan.departure_icao, flightplan.destination_icao
+        )
 
-        # Enable favorite action
+        # Enable favorite action and export menu
         self.fav_action.setEnabled(True)
+        self.export_menu.setEnabled(True)
 
         # Status message with distance/time
         stats_msg = ""
@@ -1058,9 +1136,13 @@ class MainWindow(QMainWindow):
         self.map_widget.display_flightplan(flightplan)
         self.waypoint_table.display_flightplan(flightplan, self.current_route_stats)
         self.altitude_widget.set_flightplan(flightplan, self.cruise_speed)
+        self.weather_widget.set_airports(
+            flightplan.departure_icao, flightplan.destination_icao
+        )
 
-        # Enable favorite action
+        # Enable favorite action and export menu
         self.fav_action.setEnabled(bool(flightplan.source_file))
+        self.export_menu.setEnabled(True)
 
         # Status message
         stats_msg = ""
@@ -1106,6 +1188,162 @@ class MainWindow(QMainWindow):
         if self.simbrief_client.pilot_id:
             self.simbrief_widget.set_client(self.simbrief_client)
             # Don't auto-fetch immediately, just set up the client
+
+    def _on_export(self, fmt: str):
+        """Export the current flightplan in the selected format."""
+        if not self.current_flightplan:
+            return
+
+        fp = self.current_flightplan
+        default_name = f"{fp.departure_icao}_{fp.destination_icao}.{fmt}"
+
+        filters = {
+            'pln': "MSFS Flightplan (*.pln)",
+            'flp': "FLP Flightplan (*.flp)",
+            'rte': "PMDG Route (*.rte)",
+        }
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "フライトプランをエクスポート",
+            default_name,
+            filters.get(fmt, "All Files (*)")
+        )
+        if not file_path:
+            return
+
+        exporters = {
+            'pln': export_pln,
+            'flp': export_flp,
+            'rte': export_rte,
+        }
+        success = exporters[fmt](fp, Path(file_path))
+
+        if success:
+            self.status_bar.showMessage(
+                f"エクスポート完了: {Path(file_path).name}", 5000
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "エクスポート失敗",
+                f"ファイルの書き込みに失敗しました:\n{file_path}"
+            )
+
+    # ------------------------------------------------------------------
+    # SimConnect real-time tracking
+    # ------------------------------------------------------------------
+
+    def _on_toggle_simconnect(self, checked: bool):
+        """Connect to / disconnect from MSFS."""
+        if checked:
+            if not self.simconnect_client.is_available:
+                QMessageBox.warning(
+                    self,
+                    "SimConnect",
+                    "SimConnectパッケージがインストールされていません。\n\n"
+                    "コマンドプロンプトで以下を実行してください:\n"
+                    "pip install SimConnect\n\n"
+                    "※ Windows + MSFS環境でのみ動作します"
+                )
+                self.sim_connect_btn.setChecked(False)
+                return
+
+            if not self.simconnect_client.connect_to_sim():
+                self.sim_connect_btn.setChecked(False)
+        else:
+            self.simconnect_client.disconnect_from_sim()
+
+    def _on_sim_connection_changed(self, connected: bool, message: str):
+        """Handle SimConnect connection state changes."""
+        self.sim_connect_btn.setChecked(connected)
+        self.follow_btn.setEnabled(connected)
+        self.clear_track_btn.setEnabled(connected)
+
+        if connected:
+            self.sim_status_label.setText("MSFS: 接続中")
+            self.sim_status_label.setStyleSheet("color: #0a0; padding-right: 4px;")
+        else:
+            self.sim_status_label.setText("MSFS: 未接続")
+            self.sim_status_label.setStyleSheet("color: #888; padding-right: 4px;")
+            self.progress_label.setText("")
+            self.map_widget.remove_aircraft()
+
+        self.status_bar.showMessage(message, 5000)
+
+    def _on_sim_state_updated(self, state: AircraftState):
+        """Handle aircraft state updates from the simulator."""
+        # Update aircraft marker on the map
+        self.map_widget.update_aircraft(
+            state.latitude, state.longitude,
+            state.heading_deg, state.altitude_ft, state.ground_speed_kts
+        )
+
+        # Update flight track
+        self.map_widget.update_flight_track(self.simconnect_client.track.points)
+
+        # Update flight progress against the loaded flightplan
+        self._update_flight_progress(state)
+
+    def _on_clear_track(self):
+        """Clear the recorded flight track."""
+        self.simconnect_client.clear_track()
+        self.map_widget.update_flight_track([])
+        self.map_widget.remove_aircraft()
+
+    def _update_flight_progress(self, state: AircraftState):
+        """Update the progress label: next fix and distance to destination."""
+        if not self.current_route_stats or not self.current_route_stats.legs:
+            self.progress_label.setText(
+                f"GS {state.ground_speed_kts:.0f} kt / "
+                f"ALT {state.altitude_ft:.0f} ft"
+            )
+            return
+
+        legs = self.current_route_stats.legs
+
+        # Find the leg the aircraft is currently on: the one that minimizes
+        # d(aircraft, A) + d(aircraft, B) - d(A, B)
+        best_idx = 0
+        best_score = float('inf')
+        for i, leg in enumerate(legs):
+            d_a = haversine_distance(
+                state.latitude, state.longitude,
+                leg.from_waypoint.latitude, leg.from_waypoint.longitude
+            )
+            d_b = haversine_distance(
+                state.latitude, state.longitude,
+                leg.to_waypoint.latitude, leg.to_waypoint.longitude
+            )
+            score = d_a + d_b - leg.distance_nm
+            if score < best_score:
+                best_score = score
+                best_idx = i
+
+        current_leg = legs[best_idx]
+        next_fix = current_leg.to_waypoint
+
+        # Distance to destination = distance to next fix + remaining legs
+        dist_to_next = haversine_distance(
+            state.latitude, state.longitude,
+            next_fix.latitude, next_fix.longitude
+        )
+        remaining = dist_to_next + sum(
+            leg.distance_nm for leg in legs[best_idx + 1:]
+        )
+
+        # ETE based on current ground speed
+        ete_text = ""
+        if state.ground_speed_kts > 30:
+            ete_minutes = (remaining / state.ground_speed_kts) * 60
+            hours = int(ete_minutes // 60)
+            minutes = int(ete_minutes % 60)
+            ete_text = f" / ETE {hours:02d}:{minutes:02d}"
+
+        self.progress_label.setText(
+            f"次: {next_fix.ident} {dist_to_next:.0f} NM / "
+            f"残り {remaining:.0f} NM{ete_text}"
+        )
 
     def _show_settings(self):
         """Show the settings dialog."""
@@ -1177,6 +1415,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event."""
+        self.simconnect_client.disconnect_from_sim()
         self._save_settings()
         self.map_widget.cleanup()
         event.accept()
