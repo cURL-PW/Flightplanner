@@ -9,6 +9,7 @@ API Documentation: https://www.simbrief.com/api/xml.fetcher.php
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
 from xml.etree import ElementTree
@@ -78,10 +79,11 @@ class SimBriefClient:
             pilot_id: SimBrief pilot ID (numeric or username)
         """
         self.pilot_id = pilot_id
+        self.last_error: Optional[str] = None
 
     def set_pilot_id(self, pilot_id: str):
         """Set the pilot ID."""
-        self.pilot_id = pilot_id
+        self.pilot_id = (pilot_id or "").strip()
 
     def fetch_latest_ofp(self, pilot_id: Optional[str] = None) -> Optional[SimBriefOFP]:
         """
@@ -91,39 +93,87 @@ class SimBriefClient:
             pilot_id: Optional pilot ID (uses instance pilot_id if not provided)
 
         Returns:
-            SimBriefOFP if successful, None otherwise
+            SimBriefOFP if successful, None otherwise.
+            On failure, self.last_error contains a user-facing message.
         """
-        pid = pilot_id or self.pilot_id
+        self.last_error = None
+        pid = (pilot_id or self.pilot_id or "").strip()
         if not pid:
-            print("Error: No pilot ID provided")
+            self.last_error = "Pilot IDが設定されていません"
             return None
 
-        url = f"{self.API_URL}?userid={pid}&json=1"
+        # Numeric input is a Pilot ID (userid=), anything else is a
+        # SimBrief username/alias (username=). Sending a username as
+        # userid makes the API return HTTP 400.
+        param = 'userid' if pid.isdigit() else 'username'
+        url = f"{self.API_URL}?{param}={urllib.parse.quote(pid)}&json=1"
 
         try:
-            with urllib.request.urlopen(url, timeout=30) as response:
+            request = urllib.request.Request(
+                url, headers={'User-Agent': 'MSFS-Flightplan-Viewer/1.3'}
+            )
+            with urllib.request.urlopen(request, timeout=30) as response:
                 data = json.loads(response.read().decode('utf-8'))
-                return self._parse_ofp(data)
+                ofp = self._parse_ofp(data)
+                if ofp is None and not self.last_error:
+                    self.last_error = "OFPデータの解析に失敗しました"
+                return ofp
         except urllib.error.HTTPError as e:
-            print(f"HTTP Error fetching SimBrief OFP: {e.code}")
+            self.last_error = self._describe_http_error(e)
+            print(f"HTTP Error fetching SimBrief OFP: {e.code} ({self.last_error})")
             return None
         except urllib.error.URLError as e:
+            self.last_error = f"SimBriefに接続できません（ネットワークエラー）: {e.reason}"
             print(f"URL Error fetching SimBrief OFP: {e.reason}")
             return None
         except json.JSONDecodeError as e:
+            self.last_error = "SimBriefの応答を解析できませんでした"
             print(f"JSON decode error: {e}")
             return None
         except Exception as e:
+            self.last_error = f"予期しないエラー: {e}"
             print(f"Error fetching SimBrief OFP: {e}")
             return None
+
+    def _describe_http_error(self, e: urllib.error.HTTPError) -> str:
+        """Translate a SimBrief HTTP error into a user-facing message.
+
+        SimBrief returns error details in the response body, e.g.
+        {"fetch": {"status": "Error: Unknown UserID", ...}}
+        """
+        detail = ""
+        try:
+            body = json.loads(e.read().decode('utf-8'))
+            detail = body.get('fetch', {}).get('status', '') or ''
+        except Exception:
+            pass
+
+        detail_lower = detail.lower()
+        if 'unknown userid' in detail_lower or 'unknown username' in detail_lower:
+            return (
+                "Pilot IDが見つかりません。\n"
+                "SimBrief.com → Account Settings に表示される\n"
+                "数字のPilot ID、またはユーザー名を確認してください"
+            )
+        if 'no flight plan' in detail_lower:
+            return (
+                "このアカウントにはフライトプランがありません。\n"
+                "先にSimBrief.comでフライトプランを作成（Generate Flight）\n"
+                "してください"
+            )
+        if detail:
+            return f"SimBriefエラー: {detail}"
+        return f"SimBrief APIエラー (HTTP {e.code})"
 
     def _parse_ofp(self, data: dict) -> Optional[SimBriefOFP]:
         """Parse the SimBrief API response into an OFP object."""
         try:
-            # Check for errors
+            # Check for errors (status is e.g. "Error: Unknown UserID")
             if 'fetch' in data and 'status' in data['fetch']:
-                if data['fetch']['status'] == 'Error':
-                    print(f"SimBrief error: {data['fetch'].get('result', 'Unknown error')}")
+                status = str(data['fetch']['status'] or '')
+                if status.lower().startswith('error'):
+                    self.last_error = f"SimBriefエラー: {status}"
+                    print(f"SimBrief error: {status}")
                     return None
 
             # Extract sections

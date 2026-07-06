@@ -263,12 +263,8 @@ class SettingsDialog(QDialog):
                     f"機材: {ofp.aircraft_name}"
                 )
             else:
-                QMessageBox.warning(
-                    self,
-                    "接続失敗",
-                    "SimBriefに接続できませんでした。\n"
-                    "Pilot IDを確認してください。"
-                )
+                reason = client.last_error or "SimBriefに接続できませんでした。"
+                QMessageBox.warning(self, "接続失敗", reason)
         except Exception as e:
             QMessageBox.critical(
                 self,

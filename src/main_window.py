@@ -467,12 +467,9 @@ class SimBriefWidget(QWidget):
             else:
                 self.status_label.setText("OFPの取得に失敗しました")
                 self.status_label.setStyleSheet("color: #f00;")
-                QMessageBox.warning(
-                    self,
-                    "エラー",
-                    "SimBriefからOFPを取得できませんでした。\n"
-                    "Pilot IDを確認してください。"
-                )
+                reason = self.simbrief_client.last_error or \
+                    "SimBriefからOFPを取得できませんでした。"
+                QMessageBox.warning(self, "SimBrief", reason)
         except Exception as e:
             self.status_label.setText(f"エラー: {str(e)[:30]}")
             self.status_label.setStyleSheet("color: #f00;")
