@@ -1,9 +1,12 @@
 """Parser for PMDG .rte flightplan files."""
+import logging
 from pathlib import Path
-from typing import Optional
 
-from .base import FlightplanParser
 from ..models import Flightplan, Waypoint, WaypointType
+from .base import FlightplanParser
+
+logger = logging.getLogger(__name__)
+
 
 
 class RteParser(FlightplanParser):
@@ -19,10 +22,10 @@ class RteParser(FlightplanParser):
     def supported_extensions(self) -> list[str]:
         return ['.rte']
 
-    def parse(self, file_path: Path) -> Optional[Flightplan]:
+    def parse(self, file_path: Path) -> Flightplan | None:
         """Parse a PMDG .rte flightplan file."""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 lines = f.readlines()
 
             flightplan = Flightplan(source_file=str(file_path))
@@ -55,10 +58,10 @@ class RteParser(FlightplanParser):
             return flightplan
 
         except Exception as e:
-            print(f"Error parsing RTE file {file_path}: {e}")
+            logger.error(f"Error parsing RTE file {file_path}: {e}")
             return None
 
-    def _parse_waypoint_line(self, line: str) -> Optional[Waypoint]:
+    def _parse_waypoint_line(self, line: str) -> Waypoint | None:
         """Parse a waypoint from a line in the RTE file."""
         parts = line.split()
         if len(parts) < 4:
@@ -134,7 +137,7 @@ class RteParser(FlightplanParser):
             )
 
         except Exception as e:
-            print(f"Error parsing waypoint line '{line}': {e}")
+            logger.error(f"Error parsing waypoint line '{line}': {e}")
             return None
 
     def _parse_coordinate(self, coord_str: str) -> float:

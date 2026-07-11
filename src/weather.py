@@ -1,13 +1,11 @@
 """Weather (METAR/TAF) fetching from aviationweather.gov (NOAA, no API key)."""
 import json
 import threading
-import urllib.request
 import urllib.parse
-from dataclasses import dataclass, field
-from typing import Optional
+import urllib.request
+from dataclasses import dataclass
 
 from PyQt6.QtCore import QObject, pyqtSignal
-
 
 AWC_METAR_URL = "https://aviationweather.gov/api/data/metar"
 AWC_TAF_URL = "https://aviationweather.gov/api/data/taf"
@@ -20,13 +18,13 @@ class MetarReport:
     icao: str
     raw_text: str = ""
     flight_category: str = ""   # VFR / MVFR / IFR / LIFR
-    temperature_c: Optional[float] = None
-    dewpoint_c: Optional[float] = None
-    wind_dir_deg: Optional[int] = None
-    wind_speed_kts: Optional[int] = None
-    wind_gust_kts: Optional[int] = None
-    visibility: Optional[str] = None
-    altimeter_hpa: Optional[float] = None
+    temperature_c: float | None = None
+    dewpoint_c: float | None = None
+    wind_dir_deg: int | None = None
+    wind_speed_kts: int | None = None
+    wind_gust_kts: int | None = None
+    visibility: str | None = None
+    altimeter_hpa: float | None = None
     observation_time: str = ""
 
     @property

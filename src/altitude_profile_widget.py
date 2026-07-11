@@ -1,15 +1,18 @@
 """Altitude profile chart widget for visualizing vertical flight path."""
-from typing import Optional
 
-from PyQt6.QtCore import Qt, QRectF, QPointF
+from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import (
-    QPainter, QPen, QBrush, QColor, QFont, QPainterPath,
-    QLinearGradient, QFontMetrics
+    QColor,
+    QFont,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QPen,
 )
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
+from .flight_calculator import RouteStatistics, calculate_route_statistics
 from .models import Flightplan
-from .flight_calculator import calculate_route_statistics, RouteStatistics, LegInfo
 
 
 class AltitudeProfileChart(QWidget):
@@ -36,8 +39,8 @@ class AltitudeProfileChart(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.flightplan: Optional[Flightplan] = None
-        self.route_stats: Optional[RouteStatistics] = None
+        self.flightplan: Flightplan | None = None
+        self.route_stats: RouteStatistics | None = None
         self.cruise_altitude: float = 35000  # feet
 
         self.setMinimumHeight(200)

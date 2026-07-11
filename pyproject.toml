@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "msfs-flightplan-viewer"
+description = "Interactive flightplan viewer for Microsoft Flight Simulator (PLN / FLP / RTE)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dynamic = ["version"]
+keywords = ["msfs", "flight-simulator", "flightplan", "aviation", "pyqt6"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment :: Simulation",
+]
+dependencies = [
+    "PyQt6>=6.4.0",
+    "PyQt6-WebEngine>=6.4.0",
+    "lxml>=4.9.0",
+]
+
+[project.optional-dependencies]
+# Real-time aircraft tracking (Windows + MSFS only)
+simconnect = ["SimConnect>=0.4.24"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[project.gui-scripts]
+flightplanner = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "src.__version__" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade (modern syntax)
+    "B",   # bugbear
+]
+ignore = [
+    "E501",  # long lines (embedded HTML/JS templates)
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

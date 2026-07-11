@@ -1,9 +1,7 @@
 """History and favorites management for flightplans."""
-import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from PyQt6.QtCore import QSettings
 
@@ -65,7 +63,7 @@ class HistoryManager:
 
     MAX_HISTORY_ITEMS = 50
 
-    def __init__(self, settings: Optional[QSettings] = None):
+    def __init__(self, settings: QSettings | None = None):
         self.settings = settings or QSettings("MSFSFlightplanViewer", "FlightplanViewer")
         self._history: list[FlightplanEntry] = []
         self._favorites: list[FlightplanEntry] = []
@@ -151,7 +149,7 @@ class HistoryManager:
         self._save()
         return existing
 
-    def _find_in_history(self, file_path: str) -> Optional[FlightplanEntry]:
+    def _find_in_history(self, file_path: str) -> FlightplanEntry | None:
         """Find an entry in history by file path."""
         for entry in self._history:
             if entry.file_path == file_path:
@@ -162,7 +160,7 @@ class HistoryManager:
         """Check if a file is in favorites."""
         return any(e.file_path == file_path for e in self._favorites)
 
-    def get_history(self, limit: Optional[int] = None) -> list[FlightplanEntry]:
+    def get_history(self, limit: int | None = None) -> list[FlightplanEntry]:
         """
         Get history entries.
 

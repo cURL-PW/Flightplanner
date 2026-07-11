@@ -6,13 +6,12 @@ running, the client reports itself as unavailable and the rest of
 the application keeps working normally.
 """
 from dataclasses import dataclass, field
-from typing import Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 # Optional dependency - only available on Windows with MSFS installed
 try:
-    from SimConnect import SimConnect, AircraftRequests
+    from SimConnect import AircraftRequests, SimConnect
     SIMCONNECT_AVAILABLE = True
 except ImportError:
     SIMCONNECT_AVAILABLE = False
@@ -71,11 +70,11 @@ class SimConnectClient(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._sm: Optional["SimConnect"] = None
-        self._requests: Optional["AircraftRequests"] = None
+        self._sm: SimConnect | None = None
+        self._requests: AircraftRequests | None = None
         self._connected = False
         self.track = FlightTrack()
-        self.last_state: Optional[AircraftState] = None
+        self.last_state: AircraftState | None = None
 
         self._timer = QTimer(self)
         self._timer.setInterval(self.POLL_INTERVAL_MS)

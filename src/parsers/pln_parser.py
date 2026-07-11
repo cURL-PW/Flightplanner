@@ -1,10 +1,14 @@
 """Parser for MSFS .pln flightplan files (XML format)."""
+import logging
 from pathlib import Path
-from typing import Optional
+
 from lxml import etree
 
-from .base import FlightplanParser
 from ..models import Flightplan, Waypoint, WaypointType
+from .base import FlightplanParser
+
+logger = logging.getLogger(__name__)
+
 
 
 class PlnParser(FlightplanParser):
@@ -20,7 +24,7 @@ class PlnParser(FlightplanParser):
     def supported_extensions(self) -> list[str]:
         return ['.pln']
 
-    def parse(self, file_path: Path) -> Optional[Flightplan]:
+    def parse(self, file_path: Path) -> Flightplan | None:
         """Parse a .pln XML flightplan file."""
         try:
             tree = etree.parse(str(file_path))
@@ -84,7 +88,7 @@ class PlnParser(FlightplanParser):
             return flightplan
 
         except Exception as e:
-            print(f"Error parsing PLN file {file_path}: {e}")
+            logger.error(f"Error parsing PLN file {file_path}: {e}")
             return None
 
     def _find_element(self, parent, xpath: str, ns: dict):
@@ -146,7 +150,7 @@ class PlnParser(FlightplanParser):
         # Handle simple decimal format
         return float(coord_str)
 
-    def _parse_waypoint(self, elem, ns: dict) -> Optional[Waypoint]:
+    def _parse_waypoint(self, elem, ns: dict) -> Waypoint | None:
         """Parse a single ATCWaypoint element."""
         try:
             ident_attr = elem.get('id')
@@ -193,5 +197,5 @@ class PlnParser(FlightplanParser):
             )
 
         except Exception as e:
-            print(f"Error parsing waypoint: {e}")
+            logger.error(f"Error parsing waypoint: {e}")
             return None

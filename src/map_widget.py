@@ -2,16 +2,14 @@
 import json
 import tempfile
 from pathlib import Path
-from typing import Optional
 
-from PyQt6.QtCore import Qt, pyqtSignal, QUrl
+from PyQt6.QtCore import QUrl, pyqtSignal
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
-from .models import Flightplan, Waypoint, WaypointType
 from .flight_calculator import great_circle_points, haversine_distance
-
+from .models import Flightplan
 
 # JavaScript for real-time aircraft display (plain string - single braces OK)
 _AIRCRAFT_JS = '''
@@ -93,11 +91,11 @@ class MapWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.current_flightplan: Optional[Flightplan] = None
-        self._temp_file: Optional[Path] = None
+        self.current_flightplan: Flightplan | None = None
+        self._temp_file: Path | None = None
 
         # Real-time aircraft display state (re-applied after page reloads)
-        self._last_aircraft_js: Optional[str] = None
+        self._last_aircraft_js: str | None = None
         self._track_points: list[tuple[float, float]] = []
         self._follow_aircraft = False
 
@@ -147,7 +145,7 @@ class MapWidget(QWidget):
         self.current_flightplan = None
         self._load_empty_map()
 
-    def _generate_map_html(self, flightplan: Optional[Flightplan] = None) -> str:
+    def _generate_map_html(self, flightplan: Flightplan | None = None) -> str:
         """Generate HTML with Leaflet.js map."""
 
         # Prepare waypoint data
@@ -208,7 +206,7 @@ class MapWidget(QWidget):
                 valid_wpts = [w for w in all_wpts
                               if w.latitude != 0 and w.longitude != 0]
                 route_coords = []
-                for a, b in zip(valid_wpts, valid_wpts[1:]):
+                for a, b in zip(valid_wpts, valid_wpts[1:], strict=False):
                     # More interpolation points for longer legs
                     dist = haversine_distance(a.latitude, a.longitude,
                                               b.latitude, b.longitude)

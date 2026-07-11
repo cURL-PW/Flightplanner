@@ -1,32 +1,46 @@
 """Main application window for MSFS Flightplan Viewer."""
 from pathlib import Path
-from typing import Optional
 
-from PyQt6.QtCore import Qt, QSettings
-from PyQt6.QtGui import QAction, QFont, QIcon
+from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QTreeWidget, QTreeWidgetItem, QGroupBox, QLabel, QPushButton,
-    QFileDialog, QMessageBox, QStatusBar, QMenuBar, QMenu,
-    QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,
-    QLineEdit, QComboBox, QSpinBox, QListWidget, QListWidgetItem,
-    QInputDialog, QToolBar
+    QComboBox,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QSplitter,
+    QStatusBar,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QToolBar,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
-from .models import Flightplan, Waypoint, WaypointType, AircraftConfig
-from .map_widget import MapWidget
 from .aircraft_config import AircraftManager
-from .parsers import PlnParser, FlpParser, RteParser
-from .flight_calculator import (
-    calculate_route_statistics, RouteStatistics, haversine_distance
-)
-from .simconnect_client import SimConnectClient, AircraftState
-from .history_manager import HistoryManager, FlightplanEntry
 from .altitude_profile_widget import AltitudeProfileWidget
-from .navdata import get_navdata, NavigationDatabase
-from .simbrief import SimBriefClient, SimBriefOFP
+from .exporters import export_flp, export_pln, export_rte
+from .flight_calculator import RouteStatistics, calculate_route_statistics, haversine_distance
+from .history_manager import HistoryManager
+from .map_widget import MapWidget
+from .models import AircraftConfig, Flightplan, WaypointType
+from .navdata import get_navdata
+from .parsers import FlpParser, PlnParser, RteParser
 from .settings_dialog import SettingsDialog
-from .exporters import export_pln, export_flp, export_rte
+from .simbrief import SimBriefClient, SimBriefOFP
+from .simconnect_client import AircraftState, SimConnectClient
 from .weather_widget import WeatherWidget
 
 
@@ -70,7 +84,7 @@ class WaypointTableWidget(QTableWidget):
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
-    def display_flightplan(self, flightplan: Flightplan, route_stats: Optional[RouteStatistics] = None):
+    def display_flightplan(self, flightplan: Flightplan, route_stats: RouteStatistics | None = None):
         """Display waypoints from a flightplan with route statistics."""
         self.setRowCount(0)
 
@@ -79,7 +93,6 @@ class WaypointTableWidget(QTableWidget):
         # Build leg info lookup
         leg_info = {}
         if route_stats:
-            cumulative = 0.0
             for leg in route_stats.legs:
                 leg_info[leg.to_waypoint.ident] = {
                     'distance': leg.distance_nm,
@@ -159,7 +172,7 @@ class FlightplanInfoWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.is_favorite = False
-        self.current_file_path: Optional[str] = None
+        self.current_file_path: str | None = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -179,7 +192,7 @@ class FlightplanInfoWidget(QWidget):
         self.favorite_btn.setToolTip("Add to favorites")
         self.favorite_btn.setStyleSheet("""
             QPushButton { font-size: 16px; border: none; background: transparent; }
-            QPushButton:hover { background: #444; border-radius: 15px; }
+            QPushButton:hover { background: #2f3549; border-radius: 15px; }
         """)
         top_layout.addWidget(self.favorite_btn)
 
@@ -214,11 +227,11 @@ class FlightplanInfoWidget(QWidget):
 
         # New: Distance and time
         self.distance_label = QLabel("DIST: --- NM")
-        self.distance_label.setStyleSheet("color: #0af;")
+        self.distance_label.setStyleSheet("color: #7aa2f7;")
         details_layout.addWidget(self.distance_label)
 
         self.time_label = QLabel("TIME: --:--")
-        self.time_label.setStyleSheet("color: #0fa;")
+        self.time_label.setStyleSheet("color: #9ece6a;")
         details_layout.addWidget(self.time_label)
 
         layout.addLayout(details_layout)
@@ -226,7 +239,7 @@ class FlightplanInfoWidget(QWidget):
     def display_flightplan(
         self,
         flightplan: Flightplan,
-        route_stats: Optional[RouteStatistics] = None,
+        route_stats: RouteStatistics | None = None,
         is_favorite: bool = False
     ):
         """Display flightplan information."""
@@ -260,14 +273,14 @@ class FlightplanInfoWidget(QWidget):
             self.favorite_btn.setText("★")
             self.favorite_btn.setStyleSheet("""
                 QPushButton { font-size: 16px; border: none; background: transparent; color: gold; }
-                QPushButton:hover { background: #444; border-radius: 15px; }
+                QPushButton:hover { background: #2f3549; border-radius: 15px; }
             """)
             self.favorite_btn.setToolTip("Remove from favorites")
         else:
             self.favorite_btn.setText("☆")
             self.favorite_btn.setStyleSheet("""
                 QPushButton { font-size: 16px; border: none; background: transparent; }
-                QPushButton:hover { background: #444; border-radius: 15px; }
+                QPushButton:hover { background: #2f3549; border-radius: 15px; }
             """)
             self.favorite_btn.setToolTip("Add to favorites")
 
@@ -370,8 +383,8 @@ class SimBriefWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.simbrief_client: Optional[SimBriefClient] = None
-        self.current_ofp: Optional[SimBriefOFP] = None
+        self.simbrief_client: SimBriefClient | None = None
+        self.current_ofp: SimBriefOFP | None = None
         self.on_flightplan_loaded = None  # Callback
         self._setup_ui()
 
@@ -382,7 +395,7 @@ class SimBriefWidget(QWidget):
 
         # Status
         self.status_label = QLabel("SimBriefに接続していません")
-        self.status_label.setStyleSheet("color: #888;")
+        self.status_label.setStyleSheet("color: #565f89;")
         layout.addWidget(self.status_label)
 
         # Fetch button
@@ -417,7 +430,7 @@ class SimBriefWidget(QWidget):
         self.load_btn = QPushButton("このプランを読み込む")
         self.load_btn.clicked.connect(self._load_flightplan)
         self.load_btn.setVisible(False)
-        self.load_btn.setStyleSheet("background-color: #2a82da;")
+        self.load_btn.setProperty("accent", True)
         layout.addWidget(self.load_btn)
 
         layout.addStretch()
@@ -427,7 +440,7 @@ class SimBriefWidget(QWidget):
             "SimBrief Pilot IDは\n"
             "ツール → 設定 で設定できます"
         )
-        hint_label.setStyleSheet("color: #666; font-size: 10px;")
+        hint_label.setStyleSheet("color: #565f89; font-size: 10px;")
         hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint_label)
 
@@ -436,10 +449,10 @@ class SimBriefWidget(QWidget):
         self.simbrief_client = client
         if client and client.pilot_id:
             self.status_label.setText(f"Pilot ID: {client.pilot_id}")
-            self.status_label.setStyleSheet("color: #0a0;")
+            self.status_label.setStyleSheet("color: #9ece6a;")
         else:
             self.status_label.setText("SimBriefに接続していません")
-            self.status_label.setStyleSheet("color: #888;")
+            self.status_label.setStyleSheet("color: #565f89;")
 
     def _fetch_ofp(self):
         """Fetch the latest OFP from SimBrief."""
@@ -463,16 +476,16 @@ class SimBriefWidget(QWidget):
                 self.current_ofp = ofp
                 self._display_ofp(ofp)
                 self.status_label.setText("OFPを取得しました")
-                self.status_label.setStyleSheet("color: #0a0;")
+                self.status_label.setStyleSheet("color: #9ece6a;")
             else:
                 self.status_label.setText("OFPの取得に失敗しました")
-                self.status_label.setStyleSheet("color: #f00;")
+                self.status_label.setStyleSheet("color: #f7768e;")
                 reason = self.simbrief_client.last_error or \
                     "SimBriefからOFPを取得できませんでした。"
                 QMessageBox.warning(self, "SimBrief", reason)
         except Exception as e:
             self.status_label.setText(f"エラー: {str(e)[:30]}")
-            self.status_label.setStyleSheet("color: #f00;")
+            self.status_label.setStyleSheet("color: #f7768e;")
         finally:
             self.fetch_btn.setEnabled(True)
             self.fetch_btn.setText("最新OFPを取得")
@@ -503,8 +516,8 @@ class MainWindow(QMainWindow):
 
         self.aircraft_manager = AircraftManager()
         self.parsers = [PlnParser(), FlpParser(), RteParser()]
-        self.current_flightplan: Optional[Flightplan] = None
-        self.current_route_stats: Optional[RouteStatistics] = None
+        self.current_flightplan: Flightplan | None = None
+        self.current_route_stats: RouteStatistics | None = None
         self.settings = QSettings("MSFSFlightplanViewer", "FlightplanViewer")
         self.history_manager = HistoryManager(self.settings)
         self.cruise_speed = 450  # Default cruise speed in knots
@@ -657,11 +670,11 @@ class MainWindow(QMainWindow):
 
         # Permanent widgets: flight progress + SimConnect status
         self.progress_label = QLabel("")
-        self.progress_label.setStyleSheet("color: #0fa; padding-right: 8px;")
+        self.progress_label.setStyleSheet("color: #9ece6a; padding-right: 8px;")
         self.status_bar.addPermanentWidget(self.progress_label)
 
         self.sim_status_label = QLabel("MSFS: 未接続")
-        self.sim_status_label.setStyleSheet("color: #888; padding-right: 4px;")
+        self.sim_status_label.setStyleSheet("color: #565f89; padding-right: 4px;")
         self.status_bar.addPermanentWidget(self.sim_status_label)
 
     def _setup_toolbar(self):
@@ -900,7 +913,7 @@ class MainWindow(QMainWindow):
             aircraft_item = QTreeWidgetItem([f"{aircraft_name} ({len(aircraft_files)} files)"])
             aircraft_item.setExpanded(False)
 
-            for fp_file, config in sorted(aircraft_files, key=lambda x: x[0].name):
+            for fp_file, _config in sorted(aircraft_files, key=lambda x: x[0].name):
                 file_item = QTreeWidgetItem([fp_file.name])
                 file_item.setData(0, Qt.ItemDataRole.UserRole, str(fp_file))
                 file_item.setToolTip(0, str(fp_file))
@@ -1259,10 +1272,10 @@ class MainWindow(QMainWindow):
 
         if connected:
             self.sim_status_label.setText("MSFS: 接続中")
-            self.sim_status_label.setStyleSheet("color: #0a0; padding-right: 4px;")
+            self.sim_status_label.setStyleSheet("color: #9ece6a; padding-right: 4px;")
         else:
             self.sim_status_label.setText("MSFS: 未接続")
-            self.sim_status_label.setStyleSheet("color: #888; padding-right: 4px;")
+            self.sim_status_label.setStyleSheet("color: #565f89; padding-right: 4px;")
             self.progress_label.setText("")
             self.map_widget.remove_aircraft()
 
@@ -1383,11 +1396,12 @@ class MainWindow(QMainWindow):
 
     def _show_about(self):
         """Show about dialog."""
+        from . import __version__
         QMessageBox.about(
             self,
             "About MSFS Flightplan Viewer",
             "<h2>MSFS Flightplan Viewer</h2>"
-            "<p>Version 1.2</p>"
+            f"<p>Version {__version__}</p>"
             "<p>A tool for viewing Microsoft Flight Simulator 2020 flightplans.</p>"
             "<h3>Features:</h3>"
             "<ul>"

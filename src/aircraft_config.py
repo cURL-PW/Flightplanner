@@ -1,7 +1,6 @@
 """Aircraft configuration and flightplan path management."""
 import os
 from pathlib import Path
-from typing import Optional
 
 from .models import AircraftConfig
 
@@ -34,7 +33,7 @@ def get_msfs_base_paths() -> list[Path]:
     return paths
 
 
-def get_community_folder() -> Optional[Path]:
+def get_community_folder() -> Path | None:
     """Get the MSFS Community folder path."""
     for base in get_msfs_base_paths():
         community = base / 'packages' / 'Community'

@@ -147,8 +147,7 @@ EDDM RJ 48.3539 11.7861 APT 0 DIRECT
 | PyQt6 | >= 6.4.0 | GUIフレームワーク |
 | PyQt6-WebEngine | >= 6.4.0 | 地図表示 (Leaflet.js) |
 | lxml | >= 4.9.0 | XMLパース (PLN形式) |
-| folium | >= 0.14.0 | 地図生成補助 |
-| geopy | >= 2.3.0 | 座標計算 |
+| SimConnect | >= 0.4.24 | MSFSリアルタイム連携（オプション） |
 
 ### セットアップ
 
@@ -166,11 +165,29 @@ venv\Scripts\activate
 # macOS/Linux
 source venv/bin/activate
 
-# 3. 依存関係をインストール
-pip install -r requirements.txt
+# 3. インストール（pyproject.tomlベース）
+pip install -e .
+
+# MSFSリアルタイム連携も使う場合
+pip install -e ".[simconnect]"
 
 # 4. アプリケーションを起動
 python main.py
+# または（pip install -e . 済みなら）
+flightplanner
+```
+
+### 開発者向け
+
+```bash
+# 開発用依存（pytest, ruff）を含めてインストール
+pip install -e ".[dev]"
+
+# テスト実行
+pytest
+
+# Lint
+ruff check src/ main.py tests/
 ```
 
 ### 実行ファイル化 (オプション)
@@ -270,31 +287,54 @@ pyinstaller --onefile --windowed --name "MSFS Flightplan Viewer" main.py
 
 ```
 Flightplanner/
-├── main.py                 # アプリケーションエントリーポイント
-├── requirements.txt        # 依存関係
-├── README.md               # このファイル
-├── LICENSE                 # MITライセンス
-├── .gitignore
+├── main.py                     # アプリケーションエントリーポイント
+├── pyproject.toml              # パッケージ定義・ツール設定 (ruff/pytest)
+├── requirements.txt            # 依存関係（pip install -e . を推奨）
+├── README.md                   # このファイル
+├── LICENSE                     # MITライセンス
 │
-├── samples/                # サンプルフライトプラン
-│   ├── RJTT_RJOO.pln      # 羽田 → 伊丹 (PLN形式)
-│   ├── KJFK_KLAX.pln      # ニューヨークJFK → ロサンゼルス (PLN形式)
-│   ├── EGLL_LFPG.flp      # ロンドン・ヒースロー → パリCDG (FLP形式)
-│   └── EDDF_EDDM.rte      # フランクフルト → ミュンヘン (RTE形式)
+├── .github/workflows/ci.yml   # CI (lint + テスト)
+│
+├── samples/                    # サンプルフライトプラン
+│   ├── RJTT_RJOO.pln          # 羽田 → 伊丹 (PLN形式)
+│   ├── KJFK_KLAX.pln          # ニューヨークJFK → ロサンゼルス (PLN形式)
+│   ├── EGLL_LFPG.flp          # ロンドン・ヒースロー → パリCDG (FLP形式)
+│   └── EDDF_EDDM.rte          # フランクフルト → ミュンヘン (RTE形式)
+│
+├── tests/                      # pytestテストスイート
+│   ├── test_parsers.py
+│   ├── test_exporters.py
+│   ├── test_flight_calculator.py
+│   ├── test_simbrief.py
+│   └── test_weather.py
 │
 └── src/
-    ├── __init__.py
-    ├── models.py           # データモデル (Waypoint, Flightplan)
-    ├── aircraft_config.py  # 機体設定・パス管理
-    ├── map_widget.py       # Leaflet.js地図ウィジェット
-    ├── main_window.py      # メインウィンドウUI
+    ├── __init__.py             # バージョン定義
+    ├── theme.py                # モダンダークテーマ (デザイントークン + QSS)
+    ├── models.py               # データモデル (Waypoint, Flightplan)
+    ├── aircraft_config.py      # 機体設定・パス管理
+    ├── map_widget.py           # Leaflet.js地図ウィジェット
+    ├── main_window.py          # メインウィンドウUI
+    ├── flight_calculator.py    # 距離・方位・大圏コース計算
+    ├── altitude_profile_widget.py  # 高度プロファイルチャート
+    ├── history_manager.py      # 履歴・お気に入り
+    ├── navdata.py              # 内蔵ナビゲーションDB
+    ├── simbrief.py             # SimBrief API連携
+    ├── simconnect_client.py    # MSFSリアルタイム連携
+    ├── weather.py              # METAR取得 (aviationweather.gov)
+    ├── weather_widget.py       # 気象タブUI
+    ├── settings_dialog.py      # 設定ダイアログ
     │
-    └── parsers/            # フライトプランパーサー
-        ├── __init__.py
-        ├── base.py         # パーサー基底クラス
-        ├── pln_parser.py   # PLN形式 (XML) パーサー
-        ├── flp_parser.py   # FLP形式 (CFMS) パーサー
-        └── rte_parser.py   # RTE形式 (PMDG) パーサー
+    ├── parsers/                # フライトプランパーサー
+    │   ├── base.py             # パーサー基底クラス
+    │   ├── pln_parser.py       # PLN形式 (XML)
+    │   ├── flp_parser.py       # FLP形式 (CFMS)
+    │   └── rte_parser.py       # RTE形式 (PMDG)
+    │
+    └── exporters/              # 形式間変換エクスポーター
+        ├── pln_exporter.py
+        ├── flp_exporter.py
+        └── rte_exporter.py
 ```
 
 ---

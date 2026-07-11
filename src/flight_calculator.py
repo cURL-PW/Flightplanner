@@ -1,10 +1,8 @@
 """Flight calculation utilities for distance, time, and fuel estimation."""
 import math
 from dataclasses import dataclass
-from typing import Optional
 
-from .models import Waypoint, Flightplan
-
+from .models import Flightplan, Waypoint
 
 # Earth's radius in nautical miles
 EARTH_RADIUS_NM = 3440.065
@@ -18,7 +16,7 @@ class LegInfo:
     distance_nm: float
     bearing: float  # degrees true
     cumulative_distance_nm: float
-    estimated_time_minutes: Optional[float] = None
+    estimated_time_minutes: float | None = None
 
 
 @dataclass
@@ -26,8 +24,8 @@ class RouteStatistics:
     """Statistics for a complete route."""
     total_distance_nm: float
     legs: list[LegInfo]
-    estimated_flight_time_minutes: Optional[float] = None
-    cruise_speed_knots: Optional[float] = None
+    estimated_flight_time_minutes: float | None = None
+    cruise_speed_knots: float | None = None
 
     @property
     def total_distance_km(self) -> float:
@@ -156,7 +154,7 @@ def great_circle_points(
 
 def calculate_route_statistics(
     flightplan: Flightplan,
-    cruise_speed_knots: Optional[float] = None
+    cruise_speed_knots: float | None = None
 ) -> RouteStatistics:
     """
     Calculate statistics for a complete flightplan.
@@ -289,7 +287,7 @@ AIRCRAFT_SPEEDS = {
 }
 
 
-def get_suggested_speed(aircraft_type: Optional[str]) -> Optional[float]:
+def get_suggested_speed(aircraft_type: str | None) -> float | None:
     """
     Get suggested cruise speed for an aircraft type.
 

@@ -1,7 +1,6 @@
 """Base class for flightplan parsers."""
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
 
 from ..models import Flightplan
 
@@ -16,7 +15,7 @@ class FlightplanParser(ABC):
         pass
 
     @abstractmethod
-    def parse(self, file_path: Path) -> Optional[Flightplan]:
+    def parse(self, file_path: Path) -> Flightplan | None:
         """Parse a flightplan file and return a Flightplan object."""
         pass
 

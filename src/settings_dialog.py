@@ -1,14 +1,23 @@
 """Settings dialog for application configuration."""
-from pathlib import Path
-from typing import Optional
 
-from PyQt6.QtCore import Qt, QSettings
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QWidget,
-    QLabel, QLineEdit, QPushButton, QSpinBox, QCheckBox,
-    QGroupBox, QFormLayout, QFileDialog, QMessageBox,
-    QListWidget, QListWidgetItem, QDialogButtonBox
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
 

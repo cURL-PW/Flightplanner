@@ -7,12 +7,14 @@ Supports loading from:
 - Custom CSV files
 """
 import csv
-import re
+import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from .models import WaypointType
+
+logger = logging.getLogger(__name__)
+
 
 
 @dataclass
@@ -23,9 +25,9 @@ class NavaidRecord:
     latitude: float
     longitude: float
     navaid_type: WaypointType
-    frequency: Optional[float] = None  # MHz for VOR, kHz for NDB
-    region: Optional[str] = None
-    elevation: Optional[float] = None  # feet
+    frequency: float | None = None  # MHz for VOR, kHz for NDB
+    region: str | None = None
+    elevation: float | None = None  # feet
 
     @property
     def type_code(self) -> str:
@@ -254,10 +256,10 @@ class NavigationDatabase:
     def lookup(
         self,
         ident: str,
-        navaid_type: Optional[WaypointType] = None,
-        near_lat: Optional[float] = None,
-        near_lon: Optional[float] = None
-    ) -> Optional[NavaidRecord]:
+        navaid_type: WaypointType | None = None,
+        near_lat: float | None = None,
+        near_lon: float | None = None
+    ) -> NavaidRecord | None:
         """
         Look up a navaid by identifier.
 
@@ -305,17 +307,17 @@ class NavigationDatabase:
 
         return min(candidates, key=distance_sq)
 
-    def lookup_airport(self, icao: str) -> Optional[NavaidRecord]:
+    def lookup_airport(self, icao: str) -> NavaidRecord | None:
         """Look up an airport by ICAO code."""
         return self._airports.get(icao.upper().strip())
 
     def get_coordinates(
         self,
         ident: str,
-        navaid_type: Optional[WaypointType] = None,
-        near_lat: Optional[float] = None,
-        near_lon: Optional[float] = None
-    ) -> Optional[tuple[float, float]]:
+        navaid_type: WaypointType | None = None,
+        near_lat: float | None = None,
+        near_lon: float | None = None
+    ) -> tuple[float, float] | None:
         """
         Get coordinates for a navaid.
 
@@ -338,7 +340,7 @@ class NavigationDatabase:
         """
         count = 0
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     icao = row.get('icao', '').strip().upper()
@@ -360,7 +362,7 @@ class NavigationDatabase:
                     )
                     count += 1
         except Exception as e:
-            print(f"Error loading airports CSV: {e}")
+            logger.error(f"Error loading airports CSV: {e}")
 
         return count
 
@@ -373,7 +375,7 @@ class NavigationDatabase:
         """
         count = 0
         try:
-            with open(file_path, 'r', encoding='latin-1') as f:
+            with open(file_path, encoding='latin-1') as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith('I') or line.startswith('99'):
@@ -434,7 +436,7 @@ class NavigationDatabase:
                         count += 1
 
         except Exception as e:
-            print(f"Error loading X-Plane nav data: {e}")
+            logger.error(f"Error loading X-Plane nav data: {e}")
 
         return count
 
@@ -465,7 +467,7 @@ class NavigationDatabase:
 
 
 # Global database instance
-_global_db: Optional[NavigationDatabase] = None
+_global_db: NavigationDatabase | None = None
 
 
 def get_navdata() -> NavigationDatabase:

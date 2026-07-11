@@ -1,7 +1,6 @@
 """Data models for flightplan elements."""
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 
 class WaypointType(Enum):
@@ -22,10 +21,10 @@ class Waypoint:
     latitude: float
     longitude: float
     waypoint_type: WaypointType = WaypointType.UNKNOWN
-    altitude: Optional[float] = None  # feet
-    name: Optional[str] = None
-    region: Optional[str] = None
-    airway: Optional[str] = None  # Airway used to reach this waypoint
+    altitude: float | None = None  # feet
+    name: str | None = None
+    region: str | None = None
+    airway: str | None = None  # Airway used to reach this waypoint
 
     def __str__(self) -> str:
         return f"{self.ident} ({self.latitude:.4f}, {self.longitude:.4f})"
@@ -49,12 +48,12 @@ class Waypoint:
 class Flightplan:
     """Represents a complete flightplan."""
     title: str = ""
-    departure: Optional[Waypoint] = None
-    destination: Optional[Waypoint] = None
+    departure: Waypoint | None = None
+    destination: Waypoint | None = None
     waypoints: list[Waypoint] = field(default_factory=list)
-    cruise_altitude: Optional[float] = None  # feet
-    aircraft_type: Optional[str] = None
-    source_file: Optional[str] = None
+    cruise_altitude: float | None = None  # feet
+    aircraft_type: str | None = None
+    source_file: str | None = None
 
     @property
     def departure_icao(self) -> str:
@@ -103,7 +102,7 @@ class AircraftConfig:
     manufacturer: str
     flightplan_paths: list[str] = field(default_factory=list)
     supported_formats: list[str] = field(default_factory=list)
-    icon: Optional[str] = None
+    icon: str | None = None
 
     def __str__(self) -> str:
         return f"{self.manufacturer} {self.name}"

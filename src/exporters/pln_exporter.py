@@ -1,8 +1,12 @@
 """Exporter for MSFS .pln flightplan files (XML format)."""
+import logging
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 from ..models import Flightplan, Waypoint, WaypointType
+
+logger = logging.getLogger(__name__)
+
 
 
 _TYPE_NAMES = {
@@ -108,5 +112,5 @@ def export_pln(flightplan: Flightplan, file_path: Path) -> bool:
         return True
 
     except Exception as e:
-        print(f"Error exporting PLN file {file_path}: {e}")
+        logger.error(f"Error exporting PLN file {file_path}: {e}")
         return False

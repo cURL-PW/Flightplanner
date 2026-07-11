@@ -7,14 +7,16 @@ OFP (Operational Flight Plan) for a user.
 API Documentation: https://www.simbrief.com/api/xml.fetcher.php
 """
 import json
-import urllib.request
+import logging
 import urllib.error
 import urllib.parse
+import urllib.request
 from dataclasses import dataclass
-from typing import Optional
-from xml.etree import ElementTree
 
 from .models import Flightplan, Waypoint, WaypointType
+
+logger = logging.getLogger(__name__)
+
 
 
 @dataclass
@@ -26,7 +28,7 @@ class SimBriefOFP:
     departure_name: str
     arrival_icao: str
     arrival_name: str
-    alternate_icao: Optional[str]
+    alternate_icao: str | None
 
     # Aircraft
     aircraft_icao: str
@@ -55,8 +57,8 @@ class SimBriefOFP:
     ldw: float  # Landing Weight
 
     # Weather
-    departure_metar: Optional[str]
-    arrival_metar: Optional[str]
+    departure_metar: str | None
+    arrival_metar: str | None
 
     # Waypoints
     waypoints: list[Waypoint]
@@ -71,7 +73,7 @@ class SimBriefClient:
 
     API_URL = "https://www.simbrief.com/api/xml.fetcher.php"
 
-    def __init__(self, pilot_id: Optional[str] = None):
+    def __init__(self, pilot_id: str | None = None):
         """
         Initialize the SimBrief client.
 
@@ -79,13 +81,13 @@ class SimBriefClient:
             pilot_id: SimBrief pilot ID (numeric or username)
         """
         self.pilot_id = pilot_id
-        self.last_error: Optional[str] = None
+        self.last_error: str | None = None
 
     def set_pilot_id(self, pilot_id: str):
         """Set the pilot ID."""
         self.pilot_id = (pilot_id or "").strip()
 
-    def fetch_latest_ofp(self, pilot_id: Optional[str] = None) -> Optional[SimBriefOFP]:
+    def fetch_latest_ofp(self, pilot_id: str | None = None) -> SimBriefOFP | None:
         """
         Fetch the latest OFP for a pilot.
 
@@ -120,19 +122,19 @@ class SimBriefClient:
                 return ofp
         except urllib.error.HTTPError as e:
             self.last_error = self._describe_http_error(e)
-            print(f"HTTP Error fetching SimBrief OFP: {e.code} ({self.last_error})")
+            logger.error(f"HTTP Error fetching SimBrief OFP: {e.code} ({self.last_error})")
             return None
         except urllib.error.URLError as e:
             self.last_error = f"SimBriefに接続できません（ネットワークエラー）: {e.reason}"
-            print(f"URL Error fetching SimBrief OFP: {e.reason}")
+            logger.error(f"URL Error fetching SimBrief OFP: {e.reason}")
             return None
         except json.JSONDecodeError as e:
             self.last_error = "SimBriefの応答を解析できませんでした"
-            print(f"JSON decode error: {e}")
+            logger.error(f"JSON decode error: {e}")
             return None
         except Exception as e:
             self.last_error = f"予期しないエラー: {e}"
-            print(f"Error fetching SimBrief OFP: {e}")
+            logger.error(f"Error fetching SimBrief OFP: {e}")
             return None
 
     def _describe_http_error(self, e: urllib.error.HTTPError) -> str:
@@ -165,7 +167,7 @@ class SimBriefClient:
             return f"SimBriefエラー: {detail}"
         return f"SimBrief APIエラー (HTTP {e.code})"
 
-    def _parse_ofp(self, data: dict) -> Optional[SimBriefOFP]:
+    def _parse_ofp(self, data: dict) -> SimBriefOFP | None:
         """Parse the SimBrief API response into an OFP object."""
         try:
             # Check for errors (status is e.g. "Error: Unknown UserID")
@@ -173,7 +175,7 @@ class SimBriefClient:
                 status = str(data['fetch']['status'] or '')
                 if status.lower().startswith('error'):
                     self.last_error = f"SimBriefエラー: {status}"
-                    print(f"SimBrief error: {status}")
+                    logger.error(f"SimBrief error: {status}")
                     return None
 
             # Extract sections
@@ -273,7 +275,7 @@ class SimBriefClient:
             return ofp
 
         except Exception as e:
-            print(f"Error parsing SimBrief OFP: {e}")
+            logger.error(f"Error parsing SimBrief OFP: {e}")
             return None
 
     def ofp_to_flightplan(self, ofp: SimBriefOFP) -> Flightplan:

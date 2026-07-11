@@ -1,10 +1,13 @@
 """Parser for .flp flightplan files (Aerosoft/Fenix CFMS format)."""
-from pathlib import Path
-from typing import Optional
+import logging
 import re
+from pathlib import Path
 
-from .base import FlightplanParser
 from ..models import Flightplan, Waypoint, WaypointType
+from .base import FlightplanParser
+
+logger = logging.getLogger(__name__)
+
 
 
 class FlpParser(FlightplanParser):
@@ -20,10 +23,10 @@ class FlpParser(FlightplanParser):
     def supported_extensions(self) -> list[str]:
         return ['.flp']
 
-    def parse(self, file_path: Path) -> Optional[Flightplan]:
+    def parse(self, file_path: Path) -> Flightplan | None:
         """Parse a .flp CFMS format flightplan file."""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 content = f.read()
 
             flightplan = Flightplan(source_file=str(file_path))
@@ -35,10 +38,10 @@ class FlpParser(FlightplanParser):
                 return self._parse_cfms_format(content, flightplan)
 
         except Exception as e:
-            print(f"Error parsing FLP file {file_path}: {e}")
+            logger.error(f"Error parsing FLP file {file_path}: {e}")
             return None
 
-    def _parse_cfms_format(self, content: str, flightplan: Flightplan) -> Optional[Flightplan]:
+    def _parse_cfms_format(self, content: str, flightplan: Flightplan) -> Flightplan | None:
         """Parse CFMS format .flp file."""
         lines = content.strip().split('\n')
 
@@ -76,7 +79,7 @@ class FlpParser(FlightplanParser):
 
         return flightplan
 
-    def _parse_corte_format(self, content: str, flightplan: Flightplan) -> Optional[Flightplan]:
+    def _parse_corte_format(self, content: str, flightplan: Flightplan) -> Flightplan | None:
         """Parse CoRte (company route) format .flp file."""
         lines = content.strip().split('\n')
 
@@ -122,7 +125,7 @@ class FlpParser(FlightplanParser):
 
         return flightplan
 
-    def _create_waypoint(self, data: dict) -> Optional[Waypoint]:
+    def _create_waypoint(self, data: dict) -> Waypoint | None:
         """Create waypoint from parsed CFMS data."""
         try:
             ident = data.get('ident') or data.get('Ident') or data.get('IDENT')
@@ -173,10 +176,10 @@ class FlpParser(FlightplanParser):
             )
 
         except Exception as e:
-            print(f"Error creating waypoint: {e}")
+            logger.error(f"Error creating waypoint: {e}")
             return None
 
-    def _parse_corte_waypoint(self, parts: list) -> Optional[Waypoint]:
+    def _parse_corte_waypoint(self, parts: list) -> Waypoint | None:
         """Parse waypoint from CoRte format line."""
         try:
             ident = parts[0]
@@ -186,7 +189,7 @@ class FlpParser(FlightplanParser):
             lon = 0.0
 
             # Look for coordinate-like values
-            for i, part in enumerate(parts[1:], 1):
+            for _i, part in enumerate(parts[1:], 1):
                 if self._looks_like_coordinate(part):
                     if lat == 0.0:
                         lat = self._parse_coordinate(part)

@@ -1,15 +1,18 @@
 """Widget for displaying departure/destination weather (METAR)."""
-from typing import Optional
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
-    QPushButton, QTextEdit
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
-from .weather import WeatherFetcher, MetarReport
-
+from .weather import MetarReport, WeatherFetcher
 
 # Flight category badge colors
 _CATEGORY_COLORS = {
@@ -127,8 +130,8 @@ class WeatherWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.departure_icao: Optional[str] = None
-        self.destination_icao: Optional[str] = None
+        self.departure_icao: str | None = None
+        self.destination_icao: str | None = None
 
         self.fetcher = WeatherFetcher()
         self.fetcher.fetched.connect(self._on_fetched)
@@ -164,7 +167,7 @@ class WeatherWidget(QWidget):
         source_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(source_label)
 
-    def set_airports(self, departure: Optional[str], destination: Optional[str],
+    def set_airports(self, departure: str | None, destination: str | None,
                      auto_fetch: bool = True):
         """Set the airports and optionally fetch their weather."""
         self.departure_icao = departure if departure and departure != '----' else None

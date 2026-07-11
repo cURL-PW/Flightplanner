@@ -1,7 +1,11 @@
 """Exporter for .flp flightplan files (CoRte format, Fenix/Aerosoft)."""
+import logging
 from pathlib import Path
 
 from ..models import Flightplan, WaypointType
+
+logger = logging.getLogger(__name__)
+
 
 
 _TYPE_NAMES = {
@@ -50,5 +54,5 @@ def export_flp(flightplan: Flightplan, file_path: Path) -> bool:
         return True
 
     except Exception as e:
-        print(f"Error exporting FLP file {file_path}: {e}")
+        logger.error(f"Error exporting FLP file {file_path}: {e}")
         return False

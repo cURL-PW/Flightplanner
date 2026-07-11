@@ -1,7 +1,11 @@
 """Exporter for PMDG .rte flightplan files."""
+import logging
 from pathlib import Path
 
 from ..models import Flightplan, WaypointType
+
+logger = logging.getLogger(__name__)
+
 
 
 _TYPE_NAMES = {
@@ -40,5 +44,5 @@ def export_rte(flightplan: Flightplan, file_path: Path) -> bool:
         return True
 
     except Exception as e:
-        print(f"Error exporting RTE file {file_path}: {e}")
+        logger.error(f"Error exporting RTE file {file_path}: {e}")
         return False
